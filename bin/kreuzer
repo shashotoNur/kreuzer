@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# kreuzer - launcher. It only locates the library directory and hands over.
+# All behaviour lives in lib/kreuzer so tests can source it without a terminal.
+
+# Resolve symlinks first: the launcher is usually a link into a git checkout
+# (~/.local/bin/kreuzer -> ~/src/kreuzer/bin/kreuzer).
+self=$(readlink -f -- "${BASH_SOURCE[0]}") || exit 1
+
+# Lookup order matters. An explicit override wins (development, tests), then the
+# tree next to this script (checkout, or any PREFIX install), then the distro path.
+lib=
+for dir in "${KREUZER_LIBDIR:-}" "${self%/*}/../lib/kreuzer" /usr/lib/kreuzer; do
+  if [[ -n $dir && -r $dir/main.sh ]]; then
+    lib=$(cd -- "$dir" && pwd -P)
+    break
+  fi
+done
+[[ -n $lib ]] || { echo "kreuzer: cannot locate its library directory" >&2; exit 1; }
+KREUZER_LIBDIR=$lib
+
+# Launcher variables must not leak into the application's global namespace.
+unset self lib dir
+
+# shellcheck source=/dev/null
+source "$KREUZER_LIBDIR/main.sh"
+main "$@"
+exit $?
