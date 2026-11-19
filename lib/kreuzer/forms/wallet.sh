@@ -3,18 +3,15 @@
 #
 # forms/wallet.sh - add or edit a wallet with opening balance and bounds
 #
-# Depends on : ui/form.sh, data/store.sh
+# Depends on : ui/form.sh, data/wallets.sh
 # Provides   : wallet_form wallet_validate
 # Globals    : WF_ID
-#
-# meta/wallets.tsv columns: id, name, opening_cents, opening_date, lower, upper, sort_order
-# "-" stands for "no bound".
 
 WF_ID=""
 
 wallet_validate() {
   local lo up
-  if awk -F'\t' -v n="${FV[0],,}" -v i="$WF_ID" 'tolower($2)==n && $1!=i{f=1} END{exit !f}' "$WALS"; then
+  if wallet_name_exists "${FV[0]}" "$WF_ID"; then
     FERR="a wallet with that name already exists"; return 1
   fi
   if [[ -n ${FV[3]} && -n ${FV[4]} ]]; then
@@ -25,13 +22,11 @@ wallet_validate() {
 
 wallet_form() { # [row]
   local row=${1:-} id="" nm="" ob=0 od lo="-" up="-" ttl="Add wallet" vob vod vlo="" vup=""
-  local wid wn wob wod wlo wup wso
   date_display "$(date +%F)"; vod=$DMY
   if [[ -n $row ]]; then
     id=${row%%$'\t'*}; ttl="Edit wallet"
-    # The list row has no opening data, so the full record is read from the file.
-    IFS=$'\t' read -r wid wn wob wod wlo wup wso <<<"$(awk -F'\t' -v i="$id" '$1==i' "$WALS")"
-    nm=$wn; ob=$wob; date_display "$wod"; vod=$DMY; lo=$wlo; up=$wup
+    wallet_get "$id" || { canvas_flash "$C_BAD" "Wallet not found"; draw; return 0; }
+    nm=$WG_NAME; ob=$WG_OPEN; date_display "$WG_DATE"; vod=$DMY; lo=$WG_LO; up=$WG_UP
   fi
   WF_ID=$id
   money_plain "$ob"; vob=${PL/./$DEC}
@@ -49,13 +44,8 @@ wallet_form() { # [row]
     date_parse "${FV[2]}"; od=$PD
     lo=-; if [[ -n ${FV[3]} ]]; then money_parse_signed "${FV[3]}"; lo=$PM; fi
     up=-; if [[ -n ${FV[4]} ]]; then money_parse_signed "${FV[4]}"; up=$PM; fi
-    if [[ -z $id ]]; then
-      store_next_id; id=$NID; store_max_sort "$WALS" 7
-      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$nm" "$ob" "$od" "$lo" "$up" $((MS + 1)) >>"$WALS"
-    else
-      awk -F'\t' -v OFS='\t' -v i="$id" -v n="$nm" -v o="$ob" -v d="$od" -v lo="$lo" -v up="$up" \
-        '$1==i{$2=n; $3=o; $4=d; $5=lo; $6=up} 1' "$WALS" | store_atomic "$WALS"
-    fi
+    if [[ -z $id ]]; then wallet_create "$nm" "$ob" "$od" "$lo" "$up"
+    else wallet_update "$id" "$nm" "$ob" "$od" "$lo" "$up"; fi
     canvas_flash "$C_OK" "Saved."; refresh
   else draw; fi
 }

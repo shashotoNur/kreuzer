@@ -3,7 +3,7 @@
 #
 # forms/category.sh - add or edit a category and its quota
 #
-# Depends on : ui/form.sh, data/budget.sh (budget_set_quota), domain/alerts.sh (alerts_quota_budget)
+# Depends on : ui/form.sh, data/categories.sh, data/budget.sh, domain/alerts.sh
 # Provides   : category_form category_validate
 # Globals    : CF_ID CF_KIND
 
@@ -14,13 +14,13 @@ CF_ID=""; CF_KIND=""
 category_validate() {
   local k=$CF_KIND
   if [[ -z $CF_ID ]]; then k=I; [[ ${FV[1]} == Expense ]] && k=E; fi
-  if awk -F'\t' -v k="$k" -v n="${FV[0],,}" -v i="$CF_ID" 'tolower($3)==n && $2==k && $1!=i{f=1} END{exit !f}' "$CATS"; then
+  if category_name_exists "$k" "${FV[0]}" "$CF_ID"; then
     FERR="a category with that name and type already exists"; return 1
   fi
 }
 
 category_form() { # [row]
-  local row=${1:-} id="" kd=I nm="" sp=0 q=0 vq="" ttl="Add category" qi=-1 newq so
+  local row=${1:-} id="" kd=I nm="" sp=0 q=0 vq="" ttl="Add category" qi=-1 newq
   if [[ -n $row ]]; then IFS=$'\t' read -r id kd nm sp q <<<"$row"; ttl="Edit category"; fi
   CF_ID=$id; CF_KIND=$kd
   if ((q > 0)); then money_plain "$q"; vq=${PL/./$DEC}; fi
@@ -36,10 +36,9 @@ category_form() { # [row]
     nm=${FV[0]}
     if [[ -z $id ]]; then
       kd=I; [[ ${FV[1]} == Expense ]] && kd=E
-      store_next_id; id=$NID; store_max_sort "$CATS" 4; so=$((MS + 1))
-      printf '%s\t%s\t%s\t%s\n' "$id" "$kd" "$nm" "$so" >>"$CATS"
+      category_create "$kd" "$nm"; id=$NID
     else
-      awk -F'\t' -v OFS='\t' -v i="$id" -v n="$nm" '$1==i{$3=n} 1' "$CATS" | store_atomic "$CATS"
+      category_rename "$id" "$nm"
     fi
     ALERTS=()
     if [[ $kd == E ]] && ((qi >= 0)); then

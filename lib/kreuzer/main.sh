@@ -28,7 +28,7 @@ KREUZER_MODULES=(
   core/log core/text core/list core/money core/dates core/deps
   config/config config/keys
   ui/theme ui/state
-  data/store data/categories data/transactions data/budget data/trash
+  data/store data/categories data/wallets data/transactions data/budget data/trash
   domain/balances domain/totals domain/series domain/alerts
   ui/term ui/input ui/canvas ui/widgets ui/form ui/draw
   viz/bars viz/pie viz/blocks viz/entry

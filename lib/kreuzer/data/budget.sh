@@ -4,19 +4,26 @@
 # data/budget.sh - monthly budget and category quotas
 #
 # Depends on : data/store.sh
-# Provides   : budget_for_month budget_set_quota budget_prune_quotas
+# Provides   : budget_for_month budget_set_month budget_set_quota budget_prune_quotas
 # Out-vars   : BUD
 #
 # meta/budget.tsv columns: effective_month, cents
 # meta/quotas.tsv columns: effective_month, category_id, cents
 #
 # Both are "effective from" records: the value for a month is the latest record
-# at or before it. Changing a value therefore never rewrites history, and past
-# months keep reporting the budget they were actually lived under.
+# at or before it. Changing a value never rewrites history, so past months keep
+# reporting the budget they were actually lived under.
 
 # budget_for_month MONTH -> BUD (0 when none is set)
 budget_for_month() {
   BUD=$(awk -F'\t' -v m="$1" '$1<=m && (!s || $1>=em){em=$1; b=$2; s=1} END{print b+0}' "$BUDG")
+}
+
+# One record per effective month: replace, never append duplicates. Zero removes
+# the budget from that month on.
+budget_set_month() { # month cents
+  awk -F'\t' -v m="$1" '$1!=m' "$BUDG" | store_atomic "$BUDG"
+  printf '%s\t%s\n' "$1" "$2" >>"$BUDG"
 }
 
 # Applies from the current calendar month, not the month being viewed, so

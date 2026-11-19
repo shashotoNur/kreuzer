@@ -3,12 +3,13 @@
 #
 # forms/entry.sh - income and expense form, plus helpers shared by all forms
 #
-# Depends on : ui/form.sh, domain/alerts.sh, data/*, viz/entry.sh
-# Provides   : entry_form entry_preview entry_pick_wallet entry_pick_categories entry_pick_income entry_pick_expense entry_default_date entry_save_done
+# Depends on : ui/form.sh, domain/alerts.sh, data/transactions.sh, viz/entry.sh
+# Provides   : entry_form entry_preview entry_pick_wallet entry_pick_categories
+#              entry_pick_income entry_pick_expense entry_default_date entry_save_done
 # Globals    : FKIND OLD_M OLD_AMT OLD_WAL LASTW
 #
-# Forms never reload data themselves: after a write they call entry_save_done, which
-# goes through refresh so charts and caches stay consistent.
+# Forms never reload data themselves: after a write they call entry_save_done,
+# which goes through refresh so charts and caches stay consistent.
 
 FKIND=""; OLD_M=""; OLD_AMT=0; OLD_WAL=""; LASTW=""
 
@@ -17,10 +18,7 @@ entry_pick_wallet() {
   local l id nm x; PICK=()
   for l in "${WB[@]}"; do IFS=$'\t' read -r id nm x <<<"$l"; PICK+=("$id"$'\t'"$nm"); done
 }
-entry_pick_categories() { # kind
-  mapfile -t PICK < <(awk -F'\t' -v OFS='\t' -v k="$1" '$2==k{print $4, $1, $3}' "$CATS" |
-    sort -t$'\t' -k1,1n | cut -f2-)
-}
+entry_pick_categories() { category_list "$1"; PICK=("${CATL[@]}"); }
 entry_pick_income() { entry_pick_categories I; }
 entry_pick_expense() { entry_pick_categories E; }
 
@@ -75,8 +73,6 @@ entry_preview() {
 }
 
 # entry_form KIND [ROW] : add (no row) or edit (a tx_load row) an income or expense.
-# Editing removes the old row and appends the new one, so a changed date moves
-# the entry to the right month file without special handling.
 entry_form() {
   local kind=$1 row=${2:-} id="" dt k cents cat wal note tr cid wid d t nt ttl pk vz od="" tm
   local va="" vc="" vcid="" vw="" vwid="" vnt="" vtm="" vd
@@ -111,8 +107,7 @@ entry_form() {
     date_parse "${FV[3]}"; d=$PD
     t=${FV[4]}; [[ -n $t ]] || t=-
     nt=${FV[5]//$'\t'/ }; [[ -n $nt ]] || nt=-
-    if [[ -n $id ]]; then store_row_remove "$DATA/${od:0:7}.tsv" "$id"; else store_next_id; id=$NID; fi
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t-\t%s\n' "$id" "$d" "$t" "$kind" "$cents" "${FID[1]}" "${FID[2]}" "$nt" >>"$DATA/${d:0:7}.tsv"
+    tx_save "$id" "$od" "$d" "$t" "$kind" "$cents" "${FID[1]}" "${FID[2]}" "$nt"
     LASTW=${FID[2]}
     alerts_check "${d:0:7}" "${FID[1]}" "${FID[2]}" "" "$kind"
     entry_save_done "$d"

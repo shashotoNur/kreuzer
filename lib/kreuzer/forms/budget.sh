@@ -3,7 +3,7 @@
 #
 # forms/budget.sh - set the monthly budget
 #
-# Depends on : ui/form.sh, data/budget.sh, viz/blocks.sh (block_quota_sum), domain/alerts.sh
+# Depends on : ui/form.sh, data/budget.sh, viz/blocks.sh, domain/alerts.sh
 # Provides   : budget_form budget_preview
 #
 # The value applies from the chosen month on; earlier months keep theirs, so
@@ -32,9 +32,7 @@ budget_form() {
     if ((cur > 0 && newb != cur)) && ! widget_confirm "Changing the budget is discouraged: it blurs month comparisons. Change anyway?"; then
       canvas_flash "$C_WARN" "Budget left unchanged."; refresh; return 0
     fi
-    # One record per effective month: replace, never append duplicates.
-    awk -F'\t' -v m="$bm" '$1!=m' "$BUDG" | store_atomic "$BUDG"
-    printf '%s\t%s\n' "$bm" "$newb" >>"$BUDG"
+    budget_set_month "$bm" "$newb"
     ALERTS=(); alerts_quota_budget "$bm"
     canvas_flash "$C_OK" "Saved."; refresh; widget_alerts
   else draw; fi
