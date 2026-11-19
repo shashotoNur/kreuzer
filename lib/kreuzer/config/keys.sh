@@ -3,11 +3,11 @@
 #
 # config/keys.sh - actions, default key bindings, key lookup table
 #
-# Depends on : die
-# Provides   : build_keymap dump_keys
+# Depends on : log_die
+# Provides   : keys_build keys_dump
 # Globals    : ACTIONS KEYDEF ADESC KEYMAP
 #
-# Key names (ENTER, UP, ...) are produced by ui/input.sh read_key. Plain
+# Key names (ENTER, UP, ...) are produced by ui/input.sh input_read_key. Plain
 # characters stand for themselves.
 
 # The order here is the order shown in the help overlay and the config file.
@@ -42,16 +42,16 @@ declare -gA KEYMAP=()
 # Rejecting duplicates here, at startup, is cheaper than debugging a key that
 # silently does the wrong thing. Relies on `set -f` from main.sh: unquoted
 # expansion of keys like "[" or "?" would otherwise glob against file names.
-build_keymap() {
+keys_build() {
   local a k IFS=,
   KEYMAP=()
   for a in "${ACTIONS[@]}"; do
     for k in ${KEYDEF[$a]}; do
       [[ -z $k ]] && continue
-      [[ -n ${KEYMAP[$k]+x} ]] && die "key '$k' is bound to both '${KEYMAP[$k]}' and '$a'"
+      [[ -n ${KEYMAP[$k]+x} ]] && log_die "key '$k' is bound to both '${KEYMAP[$k]}' and '$a'"
       KEYMAP[$k]=$a
     done
   done
 }
 
-dump_keys() { local a; echo "[keys]"; for a in "${ACTIONS[@]}"; do echo "$a=${KEYDEF[$a]}"; done; }
+keys_dump() { local a; echo "[keys]"; for a in "${ACTIONS[@]}"; do echo "$a=${KEYDEF[$a]}"; done; }

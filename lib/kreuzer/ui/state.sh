@@ -9,8 +9,8 @@
 # Declared in one place so there is a single list of what can change at runtime.
 # Terminal geometry lives in ui/term.sh, chart caches in viz/*.
 
-# Screen registry, in sidebar order. A screen NAME needs load_NAME, row_NAME and
-# viz_NAME functions (see the screens/ directory).
+# Screen registry, in sidebar order. A screen NAME needs screen_NAME_load, screen_NAME_row and
+# screen_NAME_viz functions (see the screens/ directory).
 SCREENS=(dashboard transactions daily categories wallets budget search trash)
 SCR_LABEL=(Dashboard Transactions Daily Categories Wallets Budget Search Trash)
 

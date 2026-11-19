@@ -21,7 +21,7 @@ for m in core/log core/text core/list core/money core/dates config/config config
 done
 
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
-CFG[data_dir]=$tmp; CFG[currency]='$'; apply_cfg; set_paths
+CFG[data_dir]=$tmp; CFG[currency]='$'; config_apply; store_set_paths
 mkdir -p "$DATA/meta"; touch "$QUOTAS" "$BUDG" "$TRASH"
 printf '1\tCash\t10000\t2026-01-01\t-\t-\t1\n' >"$WALS"
 printf '2\tE\tFood\t1\n3\tI\tSalary\t2\n' >"$CATS"
@@ -31,37 +31,37 @@ MONTH=2026-11; MONTH_LABEL="November 2026"; LW=60; TXWAL=0
 fail=0
 check() { if [[ $2 == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1: got [$2] want [$3]"; fail=1; fi; }
 
-load_wb
+balances_load
 check "net worth" "$NW_TXT" '$3,087.50'
 
-load_transactions
+screen_transactions_load
 check "transaction count" "${#ROWS_DATA[@]}" 2
-row_transactions "${ROWS_DATA[0]}"
+screen_transactions_row "${ROWS_DATA[0]}"
 [[ $RR == *lunch* && $RR == *'-$12.50'* ]] && r=yes || r=no
 check "row shows note and signed amount" "$r" yes
 
-load_dashboard
+screen_dashboard_load
 check "dashboard not selectable" "$SELECTABLE" 0
 check "dashboard totals" "$INC $EXP" "300000 1250"
 
-load_categories
+screen_categories_load
 check "category count" "${#ROWS_DATA[@]}" 2
 
-load_wallets
+screen_wallets_load
 check "wallet count" "${#ROWS_DATA[@]}" 1
 
-load_budget
+screen_budget_load
 check "budget has the viewed month" "${ROWS_DATA[0]%%$'\t'*}" 2026-11
 
-QUERY="lunch"; load_search
+QUERY="lunch"; screen_search_load
 check "search finds one match" "${#ROWS_DATA[@]}" 1
 
-load_trash
+screen_trash_load
 check "trash starts empty" "${#ROWS_DATA[@]}" 0
 
-SCREEN=daily; DAY_LABEL="x"; ROWS_DATA=(a b); title_daily
+SCREEN=daily; DAY_LABEL="x"; ROWS_DATA=(a b); screen_daily_title
 [[ $TL == "Day: x - 2 items - sort: date"* ]] && r=yes || r=no
-check "list_title dispatch" "$r" yes
+check "screen_title dispatch" "$r" yes
 
 ((fail)) && { echo "FAILED"; exit 1; }
 echo "all passed"

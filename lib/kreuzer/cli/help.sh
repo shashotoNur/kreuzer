@@ -4,10 +4,10 @@
 # cli/help.sh - command-line help text
 #
 # Depends on : APP VERSION CONF_FILE
-# Provides   : usage
+# Provides   : cli_usage
 
 # Plain text on stdout so it works in pipes and before any config exists.
-usage() {
+cli_usage() {
   cat <<EOF
 $APP $VERSION - income, expense and budget tracker
 

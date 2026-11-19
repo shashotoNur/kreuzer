@@ -3,15 +3,12 @@
 #
 # core/list.sh - small list helpers
 #
-# Depends on : nothing
-# Provides   : cycle
+# Provides : list_cycle
 
-# cycle VARNAME item...   advance VARNAME to the next item, wrapping around.
-# Uses a nameref so the caller's variable is updated in place; the underscore
-# names avoid colliding with a caller variable that happens to be called "v".
-# If the current value is not in the list, the loop ends past the last index and
-# the modulo wraps to the first item.
-cycle() {
+# list_cycle VARNAME item... : advance VARNAME to the next item, wrapping around.
+# A value that is not in the list wraps to the first item. The underscore names
+# keep the nameref from clashing with the caller's variable name.
+list_cycle() {
   local -n _v=$1; shift
   local -a _a=("$@"); local _i
   for _i in "${!_a[@]}"; do [[ ${_a[_i]} == "$_v" ]] && break; done

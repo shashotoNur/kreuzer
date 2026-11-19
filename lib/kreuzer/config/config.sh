@@ -3,8 +3,8 @@
 #
 # config/config.sh - settings file: defaults, load, write, derived values
 #
-# Depends on : trim, die, ACTIONS and KEYDEF (config/keys.sh, used at call time)
-# Provides   : load_config write_config apply_cfg
+# Depends on : text_trim, log_die, ACTIONS and KEYDEF (config/keys.sh, used at call time)
+# Provides   : config_load config_write config_apply
 # Globals    : CONF_DIR CONF_FILE CFG CFG_ORDER TH DEC ASP100 CSEP
 
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$APP"
@@ -17,22 +17,22 @@ CFG_ORDER=(data_dir currency currency_pos thousands decimal pie_aspect auto_purg
 
 # Unknown keys are fatal instead of ignored, so a typo in the file is reported
 # at startup and not silently dropped.
-load_config() {
+config_load() {
   [[ -f $CONF_FILE ]] || return 0
-  local sec="" line k v
+  local viz_section="" line k v
   while IFS= read -r line || [[ -n $line ]]; do
-    line=${line%%#*}; trim "$line"; line=$TRIM
+    line=${line%%#*}; text_trim "$line"; line=$TRIM
     [[ -z $line ]] && continue
-    if [[ $line =~ ^\[(.*)\]$ ]]; then sec=${BASH_REMATCH[1]}; continue; fi
-    k=${line%%=*}; v=${line#*=}; trim "$k"; k=$TRIM; trim "$v"; v=$TRIM
-    case $sec in
-      general) [[ -n ${CFG[$k]+x} ]] || die "unknown setting '$k' in $CONF_FILE"; CFG[$k]=$v ;;
-      keys) [[ -n ${KEYDEF[$k]+x} ]] || die "unknown action '$k' in $CONF_FILE"; KEYDEF[$k]=${v// /} ;;
+    if [[ $line =~ ^\[(.*)\]$ ]]; then viz_section=${BASH_REMATCH[1]}; continue; fi
+    k=${line%%=*}; v=${line#*=}; text_trim "$k"; k=$TRIM; text_trim "$v"; v=$TRIM
+    case $section in
+      general) [[ -n ${CFG[$k]+x} ]] || log_die "unknown setting '$k' in $CONF_FILE"; CFG[$k]=$v ;;
+      keys) [[ -n ${KEYDEF[$k]+x} ]] || log_die "unknown action '$k' in $CONF_FILE"; KEYDEF[$k]=${v// /} ;;
     esac
   done <"$CONF_FILE"
 }
 
-write_config() {
+config_write() {
   local k a
   mkdir -p "$CONF_DIR"
   {
@@ -48,7 +48,7 @@ write_config() {
 
 # Turns raw settings into the values the rest of the code reads. Run again after
 # any settings change.
-apply_cfg() {
+config_apply() {
   CFG[data_dir]=${CFG[data_dir]/#\~/$HOME}
   case ${CFG[thousands]} in space) TH=" " ;; none) TH="" ;; *) TH=${CFG[thousands]} ;; esac
   DEC=${CFG[decimal]}

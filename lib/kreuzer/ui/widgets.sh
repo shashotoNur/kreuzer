@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # ui/widgets.sh - interactive building blocks: confirm, help, picker, line editor,
-#                 prompt line, alerts popup
+#                 widget_prompt line, alerts popup
 #
-# Depends on : ui/input.sh, ui/canvas.sh, draw (ui/draw.sh), pad, KEYMAP, ACTIONS
-# Provides   : confirm show_help pick_list ebuf_view edit_loop prompt show_alerts
+# Depends on : ui/input.sh, ui/canvas.sh, draw (ui/draw.sh), text_pad, KEYMAP, ACTIONS
+# Provides   : widget_confirm widget_help widget_pick widget_edit_view widget_edit widget_prompt widget_alerts
 # Globals    : OVERLAY PROMPT PROMPT_RES EDIT EBUF EPOS EDIT_CHECK EV
 #              PTITLE PSEL PTOP PICK_ID PICK_LABEL
 #
@@ -17,33 +17,33 @@ PROMPT=""; PROMPT_RES=""
 EDIT=-1; EBUF=""; EPOS=0; EDIT_CHECK=""; EV=""
 PTITLE=""; PSEL=0; PTOP=0; PICK_ID=""; PICK_LABEL=""
 
-# confirm TEXT -> status 0 only on an explicit y, so a stray key never confirms.
-confirm() {
+# widget_confirm TEXT -> status 0 only on an explicit y, so a stray key never confirms.
+widget_confirm() {
   MSG="${C_WARN}${1:0:COLS-14}${RST} ${C_DIM}[y/N]${RST}"; draw
-  read_key; MSG=""
+  input_read_key; MSG=""
   [[ $KEY == y || $KEY == Y ]]
 }
 
 # ------------------------------------------------------------------ help overlay
-ov_help() {
+widget_help_overlay() {
   local cols=3 n=${#ACTIONS[@]} per i a col row colw ks k s
   local -a ka
   ((COLS < 90)) && cols=2
   per=$(((n + cols - 1) / cols)); colw=$(((COLS - 6) / cols))
-  box 3 3 $((per + 4)) $((COLS - 4)) "Keys - edit $CONF_FILE or run: $APP --dump-keys"
+  canvas_box 3 3 $((per + 4)) $((COLS - 4)) "Keys - edit $CONF_FILE or run: $APP --dump-keys"
   for ((i = 0; i < n; i++)); do
     a=${ACTIONS[i]}; col=$((i / per)); row=$((i % per))
     IFS=, read -ra ka <<<"${KEYDEF[$a]}"; s=""
-    for k in "${ka[@]}"; do kn "$k"; s+="${s:+/}$KN"; done
-    pad "$s" 11; ks=$PAD
-    put $((5 + row)) $((5 + col * colw)) "${C_ACC}$ks${RST}${C_TXT}${ADESC[$a]:0:colw-13}${RST}"
+    for k in "${ka[@]}"; do input_key_label "$k"; s+="${s:+/}$KN"; done
+    text_pad "$s" 11; ks=$PAD
+    canvas_put $((5 + row)) $((5 + col * colw)) "${C_ACC}$ks${RST}${C_TXT}${ADESC[$a]:0:colw-13}${RST}"
   done
-  put $((per + 6)) 5 "${C_DIM}Press any key to close${RST}"
+  canvas_put $((per + 6)) 5 "${C_DIM}Press any key to close${RST}"
 }
-show_help() { OVERLAY=ov_help; draw; read_key; OVERLAY=""; }
+widget_help() { OVERLAY=widget_help_overlay; draw; input_read_key; OVERLAY=""; }
 
 # ------------------------------------------------------------------ picker
-ov_pick() {
+widget_pick_overlay() {
   local n=${#PICK[@]} i w=0 h vis r c lab line
   for line in "${PICK[@]}"; do lab=${line#*$'\t'}; ((${#lab} > w)) && w=${#lab}; done
   w=$((w + 6)); ((w < 30)) && w=30; ((w > COLS - 6)) && w=$((COLS - 6))
@@ -52,23 +52,23 @@ ov_pick() {
   ((PSEL >= n)) && PSEL=$((n - 1)); ((PSEL < 0)) && PSEL=0
   ((PSEL < PTOP)) && PTOP=$PSEL
   ((PSEL >= PTOP + vis)) && PTOP=$((PSEL - vis + 1))
-  box "$r" "$c" "$h" "$w" "$PTITLE"
+  canvas_box "$r" "$c" "$h" "$w" "$PTITLE"
   for ((i = PTOP; i < n && i < PTOP + vis; i++)); do
-    lab=${PICK[i]#*$'\t'}; pad "$lab" $((w - 4))
-    if ((i == PSEL)); then hl $((r + 2 + i - PTOP)) $((c + 2)) $((w - 4)) "${C_TXT}$PAD${RST}"
-    else put $((r + 2 + i - PTOP)) $((c + 2)) "${C_TXT}$PAD${RST}"; fi
+    lab=${PICK[i]#*$'\t'}; text_pad "$lab" $((w - 4))
+    if ((i == PSEL)); then canvas_highlight $((r + 2 + i - PTOP)) $((c + 2)) $((w - 4)) "${C_TXT}$PAD${RST}"
+    else canvas_put $((r + 2 + i - PTOP)) $((c + 2)) "${C_TXT}$PAD${RST}"; fi
   done
 }
 
-# pick_list TITLE [INDEX] : choose from PICK ("id<TAB>label" items).
+# widget_pick TITLE [INDEX] : choose from PICK ("id<TAB>label" items).
 # Sets PICK_ID and PICK_LABEL; status 1 if cancelled or the list is empty.
 # Typing a letter jumps to the first label starting with it.
-pick_list() {
+widget_pick() {
   local n=${#PICK[@]} act i lab
-  ((n)) || { flash "$C_WARN" "nothing to choose from yet"; return 1; }
-  PTITLE=$1; PSEL=${2:-0}; PTOP=0; OVERLAY=ov_pick
+  ((n)) || { canvas_flash "$C_WARN" "nothing to choose from yet"; return 1; }
+  PTITLE=$1; PSEL=${2:-0}; PTOP=0; OVERLAY=widget_pick_overlay
   while :; do
-    draw; read_key; MSG=""
+    draw; input_read_key; MSG=""
     case $KEY in RESIZE) continue ;; EOF) OVERLAY=""; return 1 ;; esac
     act=${KEYMAP[$KEY]:-}
     case $act in
@@ -89,10 +89,10 @@ pick_list() {
 }
 
 # ------------------------------------------------------------------ line editor
-# ebuf_view WIDTH -> EV : the buffer with a reverse-video block at the cursor,
+# widget_edit_view WIDTH -> EV : the buffer with a reverse-video block at the cursor,
 # scrolled so the cursor is always inside the field. The terminal's own cursor is
 # hidden for the whole session, so the cursor is drawn by hand.
-ebuf_view() {
+widget_edit_view() {
   local w=$1 s=0 rel vis cur
   ((w < 1)) && w=1
   ((EPOS >= w)) && s=$((EPOS - w + 1))
@@ -101,13 +101,13 @@ ebuf_view() {
   EV="${vis:0:rel}"$'\e[7m'"$cur"$'\e[27m'"${vis:rel+1}"
 }
 
-ins() { ((${#EBUF} < 200)) || return 0; EBUF=${EBUF:0:EPOS}$1${EBUF:EPOS}; EPOS=$((EPOS + 1)); }
+widget_edit_insert() { ((${#EBUF} < 200)) || return 0; EBUF=${EBUF:0:EPOS}$1${EBUF:EPOS}; EPOS=$((EPOS + 1)); }
 
 # Edits EBUF in place. Status 0 on Enter (after EDIT_CHECK passes, if set),
 # 1 on Esc. A failing EDIT_CHECK keeps the editor open so the user can correct it.
-edit_loop() {
+widget_edit() {
   while :; do
-    draw; read_key; MSG=""
+    draw; input_read_key; MSG=""
     case $KEY in
       RESIZE) ;;
       EOF | ESC) return 1 ;;
@@ -120,37 +120,37 @@ edit_loop() {
       DELETE) EBUF=${EBUF:0:EPOS}${EBUF:EPOS+1} ;;
       CTRL_U) EBUF=${EBUF:EPOS}; EPOS=0 ;;
       CTRL_K) EBUF=${EBUF:0:EPOS} ;;
-      SPACE) ins " " ;;
-      COMMA) ins "," ;;
-      *) ((${#KEY} == 1)) && ins "$KEY" ;;
+      SPACE) widget_edit_insert " " ;;
+      COMMA) widget_edit_insert "," ;;
+      *) ((${#KEY} == 1)) && widget_edit_insert "$KEY" ;;
     esac
   done
 }
 
-# prompt LABEL INITIAL -> PROMPT_RES : one-line input on the message line.
-prompt() {
+# widget_prompt LABEL INITIAL -> PROMPT_RES : one-line input on the message line.
+widget_prompt() {
   local rc=1
   PROMPT=$1; EBUF=$2; EPOS=${#2}; EDIT=-1; EDIT_CHECK=""
-  if edit_loop; then PROMPT_RES=$EBUF; rc=0; fi
+  if widget_edit; then PROMPT_RES=$EBUF; rc=0; fi
   PROMPT=""; return $rc
 }
 
 # ------------------------------------------------------------------ alerts popup
 # ALERTS entries start with "W:" (warning) or "G:" (good news).
-ov_alerts() {
+widget_alerts_overlay() {
   local n=${#ALERTS[@]} w=34 a i h r c col
   for a in "${ALERTS[@]}"; do ((${#a} + 2 > w)) && w=$((${#a} + 2)); done
   ((w > COLS - 6)) && w=$((COLS - 6))
   h=$((n + 5)); r=$(((ROWS - h) / 2 + 1)); c=$(((COLS - w) / 2 + 1))
-  box "$r" "$c" "$h" "$w" "Heads up"
+  canvas_box "$r" "$c" "$h" "$w" "Heads up"
   for ((i = 0; i < n; i++)); do
     a=${ALERTS[i]}; col=$C_WARN; [[ ${a:0:1} == G ]] && col=$C_OK
-    pad "${a:2}" $((w - 4)); put $((r + 2 + i)) $((c + 2)) "$col$PAD${RST}"
+    text_pad "${a:2}" $((w - 4)); canvas_put $((r + 2 + i)) $((c + 2)) "$col$PAD${RST}"
   done
-  put $((r + h - 2)) $((c + 2)) "${C_DIM}Press any key${RST}"
+  canvas_put $((r + h - 2)) $((c + 2)) "${C_DIM}Press any key${RST}"
 }
 
-show_alerts() {
+widget_alerts() {
   ((${#ALERTS[@]})) || return 0
-  OVERLAY=ov_alerts; draw; read_key; OVERLAY=""; ALERTS=()
+  OVERLAY=widget_alerts_overlay; draw; input_read_key; OVERLAY=""; ALERTS=()
 }

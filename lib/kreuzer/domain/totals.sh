@@ -4,7 +4,7 @@
 # domain/totals.sh - monthly totals and per-category spending against quotas
 #
 # Depends on : data/store.sh, data/budget.sh
-# Provides   : load_cs month_totals quota_sum
+# Provides   : totals_load_categories totals_month totals_quota_sum
 # Globals    : CS
 # Out-vars   : INC EXP QS
 #
@@ -13,7 +13,7 @@
 # kinds or categories, so moving money between wallets never inflates income
 # or expenses.
 
-load_cs() { # month -> CS
+totals_load_categories() { # month -> CS
   local f="$DATA/$1.tsv"; [[ -f $f ]] || f=/dev/null
   mapfile -t CS < <(awk -F'\t' -v OFS='\t' -v m="$1" '
     FILENAME==ARGV[1] { if ($1=="") next; kind[$1]=$2; nm[$1]=$3; so[$1]=$4; next }
@@ -23,15 +23,15 @@ load_cs() { # month -> CS
     sort -t$'\t' -k1,1n -k2,2n | cut -f2-)
 }
 
-month_totals() { # month -> INC EXP
+totals_month() { # month -> INC EXP
   local f="$DATA/$1.tsv"; INC=0; EXP=0
   [[ -f $f ]] || return 0
   read -r INC EXP < <(awk -F'\t' '$4=="I"{i+=$5} $4=="E"{e+=$5} END{print i+0, e+0}' "$f")
 }
 
-# quota_sum ARRAYNAME -> QS : total of expense quotas in a CS-shaped array.
+# totals_quota_sum ARRAYNAME -> QS : total of expense quotas in a CS-shaped array.
 # Takes the array by name so previews can pass their own copy without touching CS.
-quota_sum() {
+totals_quota_sum() {
   local -n _q=$1; local l id kd nm sp q
   QS=0
   for l in "${_q[@]}"; do

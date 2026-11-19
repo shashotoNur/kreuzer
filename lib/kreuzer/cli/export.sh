@@ -3,17 +3,17 @@
 #
 # cli/export.sh - print one month as CSV
 #
-# Depends on : data/store.sh paths (set_paths), die
-# Provides   : cmd_export
+# Depends on : data/store.sh paths (store_set_paths), log_die
+# Provides   : cli_export
 
 # Names are resolved from the id tables, like in the app, so exports match what
 # the screens show (including DELETED). Expenses and outgoing transfers are
 # negative so the sign alone tells the direction. Text fields are quoted with
 # doubled quotes, the CSV rule, since notes may contain commas.
-cmd_export() { # YYYY-MM
+cli_export() { # YYYY-MM
   local f="$DATA/$1.tsv"
-  [[ $1 =~ ^[0-9]{4}-[0-9]{2}$ ]] || die "month must look like 2026-11"
-  [[ -f $f ]] || die "no data file for $1"
+  [[ $1 =~ ^[0-9]{4}-[0-9]{2}$ ]] || log_die "month must look like 2026-11"
+  [[ -f $f ]] || log_die "no data file for $1"
   awk -F'\t' -v cf="$CATS" -v wf="$WALS" '
     function q(s) { gsub(/"/, "\"\"", s); return "\"" s "\"" }
     BEGIN {

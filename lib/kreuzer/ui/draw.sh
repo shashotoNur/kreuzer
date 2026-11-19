@@ -3,9 +3,9 @@
 #
 # ui/draw.sh - frame renderer: header, sidebar, list, form, footer
 #
-# Depends on : ui/canvas.sh, ui/term.sh, ui/widgets.sh (ebuf_view), kn, list_title
-#              and row_<screen> / viz_<screen> (screens/, viz/), KEYDEF
-# Provides   : draw update_labels clamp_sel move_sel
+# Depends on : ui/canvas.sh, ui/term.sh, ui/widgets.sh (widget_edit_view), input_key_label, screen_title
+#              and screen_<name>_row / screen_<name>_viz (screens/, viz/), KEYDEF
+# Provides   : draw draw_update_labels draw_clamp_selection draw_move_selection
 # Globals    : MONTH_LABEL DAY_LABEL LBL_M LBL_D
 #
 # draw() only renders cached data (ROWS_DATA, TX, WB, ...). Reloading is the job of
@@ -15,7 +15,7 @@ MONTH_LABEL=""; DAY_LABEL=""; LBL_M=""; LBL_D=""
 
 # Month and day names come from date(1), which forks, so they are recomputed only
 # when the value changed.
-update_labels() {
+draw_update_labels() {
   if [[ $LBL_M != "$MONTH" ]]; then MONTH_LABEL=$(date -d "$MONTH-01" '+%B %Y'); LBL_M=$MONTH; fi
   if [[ $LBL_D != "$DAY" ]]; then DAY_LABEL=$(date -d "$DAY" '+%a %d/%m/%Y'); LBL_D=$DAY; fi
 }
@@ -26,39 +26,39 @@ draw_header() {
     daily) nav="‹ $DAY_LABEL ›" ;;
     dashboard | transactions | categories | budget) nav="‹ $MONTH_LABEL ›" ;;
   esac
-  put 1 2 "${BOLD}${C_ACC}$APP${RST} ${C_DIM}$VERSION${RST}"
-  [[ -n $nav ]] && put 1 $(((COLS - ${#nav}) / 2)) "${C_TXT}$nav${RST}"
-  put 1 $((COLS - ${#right} - 12)) "${C_DIM}Net worth:${RST} ${C_ACC}$right${RST}"
-  put 2 1 "${C_DIM}$HR${RST}"
+  canvas_put 1 2 "${BOLD}${C_ACC}$APP${RST} ${C_DIM}$VERSION${RST}"
+  [[ -n $nav ]] && canvas_put 1 $(((COLS - ${#nav}) / 2)) "${C_TXT}$nav${RST}"
+  canvas_put 1 $((COLS - ${#right} - 12)) "${C_DIM}Net worth:${RST} ${C_ACC}$right${RST}"
+  canvas_put 2 1 "${C_DIM}$HR${RST}"
 }
 
 # Sidebar shortcuts come from KEYDEF, so rebinding a screen key updates the label.
 draw_sidebar() {
   local i r s
   for i in "${!SCREENS[@]}"; do
-    s=${SCREENS[i]}; r=$((BY0 + i)); kn "${KEYDEF[goto_$s]%%,*}"
+    s=${SCREENS[i]}; r=$((BY0 + i)); input_key_label "${KEYDEF[goto_$s]%%,*}"
     if [[ $s == "$SCREEN" ]]; then
-      pad "$KN ${SCR_LABEL[i]}" $((SW - 1)); hl "$r" 1 "$SW" " ${BOLD}${C_ACC}$PAD${RST}"
+      text_pad "$KN ${SCR_LABEL[i]}" $((SW - 1)); canvas_highlight "$r" 1 "$SW" " ${BOLD}${C_ACC}$PAD${RST}"
     else
-      put "$r" 2 "${C_DIM}$KN${RST} ${C_TXT}${SCR_LABEL[i]}${RST}"
+      canvas_put "$r" 2 "${C_DIM}$KN${RST} ${C_TXT}${SCR_LABEL[i]}${RST}"
     fi
   done
-  for ((r = BY0; r <= BY1; r++)); do put "$r" $((SW + 1)) "${C_DIM}│${RST}"; done
-  put 2 $((SW + 1)) "${C_DIM}┬${RST}"
+  for ((r = BY0; r <= BY1; r++)); do canvas_put "$r" $((SW + 1)) "${C_DIM}│${RST}"; done
+  canvas_put 2 $((SW + 1)) "${C_DIM}┬${RST}"
 }
 
 # Only the visible slice of ROWS_DATA is formatted, so large months stay fast.
 draw_list() {
   local n=${#ROWS_DATA[@]} i r=$((BY0 + 2)) pos=""
-  list_title
+  screen_title
   ((SELECTABLE && n)) && pos="$((SEL + 1))/$n"
-  put "$BY0" "$LX" "${BOLD}${C_ACC}${TL:0:LW-${#pos}-1}${RST}"
-  [[ -n $pos ]] && put "$BY0" $((LX + LW - ${#pos})) "${C_DIM}$pos${RST}"
-  [[ -n $CH ]] && put $((BY0 + 1)) "$LX" "${C_DIM}${CH:0:LW}${RST}"
-  if ((n == 0)); then put "$r" "$LX" "${C_DIM}Nothing here yet.${RST}"; return 0; fi
+  canvas_put "$BY0" "$LX" "${BOLD}${C_ACC}${TL:0:LW-${#pos}-1}${RST}"
+  [[ -n $pos ]] && canvas_put "$BY0" $((LX + LW - ${#pos})) "${C_DIM}$pos${RST}"
+  [[ -n $CH ]] && canvas_put $((BY0 + 1)) "$LX" "${C_DIM}${CH:0:LW}${RST}"
+  if ((n == 0)); then canvas_put "$r" "$LX" "${C_DIM}Nothing here yet.${RST}"; return 0; fi
   for ((i = TOPROW; i < n && i < TOPROW + LH; i++)); do
-    "row_$SCREEN" "${ROWS_DATA[i]}"
-    if ((SELECTABLE && i == SEL)); then hl "$r" "$LX" "$LW" "$RR"; else put "$r" "$LX" "$RR"; fi
+    "screen_${SCREEN}_row" "${ROWS_DATA[i]}"
+    if ((SELECTABLE && i == SEL)); then canvas_highlight "$r" "$LX" "$LW" "$RR"; else canvas_put "$r" "$LX" "$RR"; fi
     r=$((r + 1))
   done
 }
@@ -67,10 +67,10 @@ draw_form() {
   local n=${#FL[@]} i r=$BY0 lab val vw=$((LW - 16)) t line
   # The preview (charts, projected balances) is rebuilt only after a value change.
   if ((FDIRTY)); then FDIRTY=0; PVL=(); [[ -n $FPREVFN ]] && "$FPREVFN"; fi
-  put "$r" "$LX" "${BOLD}${C_ACC}${FTITLE:0:LW}${RST}"; r=$((r + 2))
+  canvas_put "$r" "$LX" "${BOLD}${C_ACC}${FTITLE:0:LW}${RST}"; r=$((r + 2))
   for ((i = 0; i < n && r <= BY1; i++)); do
-    pad "${FL[i]}" 13; lab=$PAD; t=${FA[i]%%:*}
-    if ((i == EDIT)); then ebuf_view "$vw"; val=$EV
+    text_pad "${FL[i]}" 13; lab=$PAD; t=${FA[i]%%:*}
+    if ((i == EDIT)); then widget_edit_view "$vw"; val=$EV
     else
       val=${FV[i]}
       [[ $t == choice ]] && val="‹ $val ›"
@@ -78,23 +78,23 @@ draw_form() {
       val=${val:0:vw}
     fi
     line="${C_DIM}$lab${RST} ${C_TXT}$val${RST}"
-    if ((i == FCUR)); then hl "$r" "$LX" "$LW" "$line"; else put "$r" "$LX" "$line"; fi
+    if ((i == FCUR)); then canvas_highlight "$r" "$LX" "$LW" "$line"; else canvas_put "$r" "$LX" "$line"; fi
     r=$((r + 1))
   done
   if ((r <= BY1)); then
     line="${C_ACC}[ Save ]${RST}"
-    if ((FCUR == n)); then hl "$r" "$LX" "$LW" "$line"; else put "$r" "$LX" "$line"; fi
+    if ((FCUR == n)); then canvas_highlight "$r" "$LX" "$LW" "$line"; else canvas_put "$r" "$LX" "$line"; fi
   fi
   r=$((r + 2))
-  ((FCUR < n && r <= BY1)) && [[ -n ${FH[FCUR]} ]] && put "$r" "$LX" "${C_DIM}${FH[FCUR]:0:LW}${RST}"
+  ((FCUR < n && r <= BY1)) && [[ -n ${FH[FCUR]} ]] && canvas_put "$r" "$LX" "${C_DIM}${FH[FCUR]:0:LW}${RST}"
   r=$((r + 2))
-  for line in "${PVL[@]}"; do ((r <= BY1)) && put "$r" "$LX" "$line"; r=$((r + 1)); done
+  for line in "${PVL[@]}"; do ((r <= BY1)) && canvas_put "$r" "$LX" "$line"; r=$((r + 1)); done
 }
 
 # While a form is open and names a chart function, that one is drawn instead of
 # the screen's own chart. This is how entry forms show live previews.
 draw_viz() {
-  local vf=viz_$SCREEN
+  local vf=screen_${SCREEN}_viz
   [[ $MODE == form && -n $FVIZ ]] && vf=$FVIZ
   declare -F "$vf" >/dev/null || return 0
   "$vf"
@@ -103,9 +103,9 @@ draw_viz() {
 draw_msgline() {
   local r=$((ROWS - 1))
   if [[ -n $PROMPT ]]; then
-    ebuf_view $((COLS - ${#PROMPT} - 4))
-    put "$r" 2 "${C_ACC}$PROMPT${RST}${C_TXT}$EV${RST}"
-  elif [[ -n $MSG ]]; then put "$r" 2 "$MSG"; fi
+    widget_edit_view $((COLS - ${#PROMPT} - 4))
+    canvas_put "$r" 2 "${C_ACC}$PROMPT${RST}${C_TXT}$EV${RST}"
+  elif [[ -n $MSG ]]; then canvas_put "$r" 2 "$MSG"; fi
 }
 
 # Hints are given as action:label pairs; the key shown is whatever is bound now.
@@ -123,29 +123,29 @@ draw_footer() {
       trash) specs=(restore:Restore purge:Delete empty_trash:Empty) ;;
     esac
   fi
-  kn "${KEYDEF[help]%%,*}"; hk=$KN; kn "${KEYDEF[quit]%%,*}"; qk=$KN
+  input_key_label "${KEYDEF[help]%%,*}"; hk=$KN; input_key_label "${KEYDEF[quit]%%,*}"; qk=$KN
   w=$((COLS - ${#hk} - ${#qk} - 16))
   for s in "${specs[@]}"; do
     a=${s%%:*}; lab=${s#*:}; k=${KEYDEF[$a]%%,*}
     [[ -n $k ]] || continue
-    kn "$k"; item="$KN $lab"
+    input_key_label "$k"; item="$KN $lab"
     ((used + ${#item} + 2 > w)) && break
     left+="${C_ACC}$KN${RST} ${C_DIM}$lab${RST}  "; used=$((used + ${#item} + 2))
   done
-  put "$ROWS" 2 "$left"
-  put "$ROWS" $((COLS - ${#hk} - ${#qk} - 12)) "${C_ACC}$hk${RST} ${C_DIM}Help${RST}  ${C_ACC}$qk${RST} ${C_DIM}Quit${RST}"
+  canvas_put "$ROWS" 2 "$left"
+  canvas_put "$ROWS" $((COLS - ${#hk} - ${#qk} - 12)) "${C_ACC}$hk${RST} ${C_DIM}Help${RST}  ${C_ACC}$qk${RST} ${C_DIM}Quit${RST}"
 }
 
 # The whole frame is built in BUF and written once, wrapped in synchronized-output
 # markers (mode 2026) so terminals that support it show the frame atomically.
 draw() {
   local r
-  ((RESIZED)) && { RESIZED=0; layout; }
-  update_labels; pane_setup
+  ((RESIZED)) && { RESIZED=0; term_layout; }
+  draw_update_labels; term_panes
   BUF=$'\e[?2026h\e[H\e[2J'
   draw_header
   if ((TOOSMALL)); then
-    put 4 2 "${C_WARN}Terminal too small: need 70x20, have ${COLS}x${ROWS}${RST}"
+    canvas_put 4 2 "${C_WARN}Terminal too small: need 70x20, have ${COLS}x${ROWS}${RST}"
   else
     draw_sidebar
     if ((VIZFULL)); then draw_viz
@@ -153,10 +153,10 @@ draw() {
       if [[ $MODE == form ]]; then draw_form; else draw_list; fi
       if ((VIZON)); then
         for ((r = BY0; r <= BY1; r++)); do
-          put "$r" $((VX - 2)) $'\e['$((COLS - VX + 3))'X'
-          put "$r" $((VX - 2)) "${C_DIM}│${RST}"
+          canvas_put "$r" $((VX - 2)) $'\e['$((COLS - VX + 3))'X'
+          canvas_put "$r" $((VX - 2)) "${C_DIM}│${RST}"
         done
-        put 2 $((VX - 2)) "${C_DIM}┬${RST}"
+        canvas_put 2 $((VX - 2)) "${C_DIM}┬${RST}"
         draw_viz
       fi
     fi
@@ -168,7 +168,7 @@ draw() {
 }
 
 # Keeps the selection inside the list and scrolls the visible window with it.
-clamp_sel() {
+draw_clamp_selection() {
   local n=${#ROWS_DATA[@]}
   ((SEL >= n)) && SEL=$((n - 1))
   ((SEL < 0)) && SEL=0
@@ -178,4 +178,4 @@ clamp_sel() {
   return 0
 }
 
-move_sel() { SEL=$((SEL + $1)); local n=${#ROWS_DATA[@]}; ((SEL >= n)) && SEL=$((n - 1)); ((SEL < 0)) && SEL=0; clamp_sel; }
+draw_move_selection() { SEL=$((SEL + $1)); local n=${#ROWS_DATA[@]}; ((SEL >= n)) && SEL=$((n - 1)); ((SEL < 0)) && SEL=0; draw_clamp_selection; }

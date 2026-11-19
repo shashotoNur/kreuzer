@@ -4,12 +4,12 @@
 # screens/transactions.sh - all transactions of the viewed month
 #
 # Depends on : data/transactions.sh, screens/common.sh, viz/blocks.sh
-# Provides   : load_transactions row_transactions title_transactions viz_transactions
+# Provides   : screen_transactions_load screen_transactions_row screen_transactions_title screen_transactions_viz
 
-load_transactions() { load_month_tx; ROWS_DATA=("${TX[@]}"); SELECTABLE=1; }
+screen_transactions_load() { tx_load_month; ROWS_DATA=("${TX[@]}"); SELECTABLE=1; }
 
-row_transactions() { row_tx "$1"; }
+screen_transactions_row() { screen_row_tx "$1"; }
 
-title_transactions() { title_tx "Transactions - $MONTH_LABEL"; }
+screen_transactions_title() { screen_title_tx "Transactions - $MONTH_LABEL"; }
 
-viz_transactions() { sel_cat; viz_pair "$VY" "$VH" TX; }
+screen_transactions_viz() { pie_selected_category; block_pies "$VY" "$VH" TX; }

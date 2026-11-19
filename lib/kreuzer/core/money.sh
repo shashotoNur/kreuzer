@@ -3,47 +3,44 @@
 #
 # core/money.sh - amounts as integer cents: parsing and display
 #
-# Depends on : CFG[currency] CFG[currency_pos] TH DEC CSEP (set by config/config.sh
-#              apply_cfg; only needed when fm is called, not when this file loads)
-# Provides   : parse_money plain fm scents
+# Depends on : CFG, TH, DEC, CSEP (set by config_apply; needed at call time only)
+# Provides   : money_parse money_plain money_format money_parse_signed
 # Out-vars   : PM PL M
 #
-# Money is stored and computed as integer cents everywhere. Floats would make
-# totals drift by a cent and make the "unused budget" figures untrustworthy.
+# Money is stored and computed as integer cents. Floats would drift by a cent and
+# make the unused-budget figures untrustworthy.
 
-# Accepts "12", "12.5", "12,50". Both separators are accepted on input regardless
-# of display settings because users type what their keyboard layout gives them.
-# Thousands separators are rejected on purpose: "1,234" would be ambiguous.
-# 10# forces base 10, otherwise "08" is read as invalid octal.
-parse_money() {
+# Accepts "12", "12.5" and "12,50": users type what their keyboard layout gives
+# them. Thousands separators are rejected because "1,234" would be ambiguous.
+# 10# avoids "08" being read as invalid octal.
+money_parse() {
   local s=${1//[[:space:]]/}; s=${s//,/.}
   [[ $s =~ ^([0-9]+)(\.([0-9]{1,2}))?$ ]] || return 1
   local f=${BASH_REMATCH[3]}00; f=${f:0:2}
   PM=$((10#${BASH_REMATCH[1]} * 100 + 10#$f))
 }
 
-# Cents to a plain "d.dd" string for storage and form fields. The sign is split
-# off first: bash division truncates toward zero, so -5 would print as "0.-5".
-plain() { local c=$1 n=""; ((c < 0)) && { n=-; c=$((-c)); }; printf -v PL '%s%d.%02d' "$n" $((c / 100)) $((c % 100)); }
+# Plain "d.dd" for storage and form fields. The sign is split off first because
+# bash division truncates toward zero and -5 would print as "0.-5".
+money_plain() { local c=$1 n=""; ((c < 0)) && { n=-; c=$((-c)); }; printf -v PL '%s%d.%02d' "$n" $((c / 100)) $((c % 100)); }
 
-# Cents to a display string using the user's separators and currency.
-# Grouping is built from the right in chunks of three digits.
-fm() {
+# Display form with the user's separators and currency. Digits are grouped from
+# the right. CSEP is a space only for alphabetic currencies ("EUR 5", "$5").
+money_format() {
   local c=$1 neg="" w s out="" f
   ((c < 0)) && { neg="-"; c=$((-c)); }
   w=$((c / 100)); printf -v f '%02d' $((c % 100)); s=$w
   while ((${#s} > 3)); do out="$TH${s: -3}$out"; s=${s:0:${#s}-3}; done
   out="$s$out$DEC$f"
-  # CSEP is a space only for alphabetic currencies ("EUR 5" but "$5").
   if [[ ${CFG[currency_pos]} == suffix ]]; then M="$neg$out ${CFG[currency]}"
   else M="$neg${CFG[currency]}$CSEP$out"; fi
 }
 
-# Signed variant of parse_money (balances and bounds may be negative).
-scents() {
+# Signed variant, for balances and bounds that may be negative.
+money_parse_signed() {
   local s=$1 neg=0
   [[ $s == -* ]] && { neg=1; s=${s#-}; }
-  parse_money "$s" || return 1
+  money_parse "$s" || return 1
   ((neg)) && PM=$((-PM))
   return 0
 }

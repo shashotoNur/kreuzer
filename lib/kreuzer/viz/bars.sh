@@ -3,8 +3,8 @@
 #
 # viz/bars.sh - bars, sparklines and chart-pane drawing primitives
 #
-# Depends on : ui/canvas.sh (put), ui/theme.sh, domain/series.sh, WMAX, rep
-# Provides   : vp sec mkbar nbar wbar spark_c spark_w
+# Depends on : ui/canvas.sh (canvas_put), ui/theme.sh, domain/series.sh, WMAX, text_repeat
+# Provides   : viz_line viz_section viz_bar viz_bar_plain viz_bar_wallet viz_spark_daily viz_spark_wallet
 # Out-vars   : BAR SPK SMIN SMAX
 # Globals    : DVER SPKC WSC
 #
@@ -15,15 +15,15 @@
 DVER=0
 declare -gA SPKC=() WSC=()
 
-# vp ROW TEXT : write one line at the pane's left edge, clipped to the pane.
-vp() { (($1 >= VY && $1 < VY + VH)) && put "$1" "$VX" "$2"; return 0; }
+# viz_line ROW TEXT : write one line at the pane's left edge, clipped to the pane.
+viz_line() { (($1 >= VY && $1 < VY + VH)) && canvas_put "$1" "$VX" "$2"; return 0; }
 
-# sec ROW TITLE : section rule with a title, spanning the pane width.
-sec() { local t=$2; rep "─" $((VW - ${#t} - 4)); vp "$1" "${C_DIM}── ${RST}${BOLD}${C_ACC}$t${RST}${C_DIM} $REP${RST}"; }
+# viz_section ROW TITLE : section rule with a title, spanning the pane width.
+viz_section() { local t=$2; text_repeat "─" $((VW - ${#t} - 4)); viz_line "$1" "${C_DIM}── ${RST}${BOLD}${C_ACC}$t${RST}${C_DIM} $REP${RST}"; }
 
 # Progress bar that turns yellow at 80% and red above 100%, for spending
 # against a limit. Integer math only: bash has no floats.
-mkbar() { # current max width -> BAR
+viz_bar() { # current max width -> BAR
   local cur=$1 max=$2 w=$3 f=0 col=$C_OK a b
   ((max > 0)) && f=$((cur * w / max))
   ((f > w)) && f=$w; ((f < 0)) && f=0
@@ -33,7 +33,7 @@ mkbar() { # current max width -> BAR
 }
 
 # Same shape without the traffic-light colours, for values with no limit.
-nbar() { # current max width -> BAR
+viz_bar_plain() { # current max width -> BAR
   local cur=$1 max=$2 w=$3 f=0 a b
   ((max > 0)) && f=$((cur * w / max))
   ((f > w)) && f=$w; ((f < 0)) && f=0
@@ -44,7 +44,7 @@ nbar() { # current max width -> BAR
 # Wallet bar with its bounds drawn as markers. The scale is the upper bound when
 # one exists (so a full bar means "goal reached"), otherwise the largest wallet.
 # "-" means "no bound", the same placeholder the data files use.
-wbar() { # balance lower upper width -> BAR
+viz_bar_wallet() { # balance lower upper width -> BAR
   local bal=$1 lo=$2 up=$3 w=$4 scale f=0 col=$C_ACC i s="" mlo=-1 mup=-1
   scale=$WMAX; [[ $up != - ]] && ((up > 0)) && scale=$up
   ((scale < 1)) && scale=1
@@ -64,20 +64,20 @@ wbar() { # balance lower upper width -> BAR
 
 # Cached sparklines: the awk passes behind them read every month file, which is
 # too slow to repeat on each keypress.
-spark_c() { # month kind(I|E) -> SPK
+viz_spark_daily() { # month kind(I|E) -> SPK
   local key="$1|$2|$DVER"
   if [[ -z ${SPKC["$key"]+x} ]]; then
-    daily_spark "$1" "$2"
+    series_daily "$1" "$2"
     ((${#SPKC[@]} > 60)) && SPKC=()
     SPKC["$key"]=$SPK
   fi
   SPK=${SPKC["$key"]}
 }
 
-spark_w() { # m|y wallet_id month -> SPK SMIN SMAX   (m = daily, y = 12 months)
+viz_spark_wallet() { # m|y wallet_id month -> SPK SMIN SMAX   (m = daily, y = 12 months)
   local key="$1|$2|$3|$DVER"
   if [[ -z ${WSC["$key"]+x} ]]; then
-    if [[ $1 == m ]]; then wallet_spark "$2" "$3"; else wallet_year "$2" "$3"; fi
+    if [[ $1 == m ]]; then series_wallet_month "$2" "$3"; else series_wallet_year "$2" "$3"; fi
     ((${#WSC[@]} > 80)) && WSC=()
     WSC["$key"]="$SPK $SMIN $SMAX"
   fi

@@ -4,7 +4,7 @@
 # ui/input.sh - keyboard input
 #
 # Depends on : nothing
-# Provides   : read_key kn
+# Provides   : input_read_key input_key_label
 # Out-vars   : KEY KN
 #
 # KEY is a printable character or one of: ENTER ESC TAB SHIFT_TAB SPACE COMMA
@@ -14,7 +14,7 @@
 
 KEY=""; KN=""
 
-read_key() {
+input_read_key() {
   local k c seq rc
   KEY=""
   IFS= read -rsn1 k; rc=$?
@@ -54,8 +54,8 @@ read_key() {
   esac
 }
 
-# kn KEYNAME -> KN : label for footers and help ("ENTER" becomes "Enter").
-kn() {
+# input_key_label KEYNAME -> KN : label for footers and help ("ENTER" becomes "Enter").
+input_key_label() {
   case $1 in
     ENTER) KN=Enter ;; ESC) KN=Esc ;; TAB) KN=Tab ;; SPACE) KN=Space ;; COMMA) KN="," ;;
     UP) KN="↑" ;; DOWN) KN="↓" ;; LEFT) KN="←" ;; RIGHT) KN="→" ;; BACKSPACE) KN=Bksp ;;

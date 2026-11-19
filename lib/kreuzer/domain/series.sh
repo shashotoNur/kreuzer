@@ -3,8 +3,8 @@
 #
 # domain/series.sh - time series rendered as unicode sparklines
 #
-# Depends on : data/store.sh, all_months
-# Provides   : daily_spark wallet_spark wallet_year
+# Depends on : data/store.sh, store_months
+# Provides   : series_daily series_wallet_month series_wallet_year
 # Out-vars   : SPK SMIN SMAX
 #
 # Each function returns a string of block characters (one per day or month) plus,
@@ -13,7 +13,7 @@
 
 # Per-day totals of one kind (I or E) for a month. A middle dot marks days with
 # no activity so the string always has one character per day of the month.
-daily_spark() { # month kind -> SPK
+series_daily() { # month kind -> SPK
   local f="$DATA/$1.tsv" nd; [[ -f $f ]] || f=/dev/null
   nd=$(date -d "$1-01 +1 month -1 day" +%d)
   SPK=$(awk -F'\t' -v nd=$((10#$nd)) -v k="$2" '
@@ -25,8 +25,8 @@ daily_spark() { # month kind -> SPK
 
 # Running balance of one wallet for each day of a month. The balance at the start
 # of the month is the opening balance plus everything in earlier months.
-wallet_spark() { # wallet_id month -> SPK SMIN SMAX
-  local -a mf; mapfile -t mf < <(all_months)
+series_wallet_month() { # wallet_id month -> SPK SMIN SMAX
+  local -a mf; mapfile -t mf < <(store_months)
   local nd; nd=$(date -d "$2-01 +1 month -1 day" +%d)
   SPK=""; SMIN=0; SMAX=0
   read -r SPK SMIN SMAX < <(awk -F'\t' -v w="$1" -v m="$2" -v nd=$((10#$nd)) '
@@ -41,8 +41,8 @@ wallet_spark() { # wallet_id month -> SPK SMIN SMAX
 
 # Month-end balances for the 12 months ending at MONTH. The month arithmetic is
 # done in awk by hand (no date calls) so it stays a single process.
-wallet_year() { # wallet_id month -> SPK SMIN SMAX
-  local -a mf; mapfile -t mf < <(all_months)
+series_wallet_year() { # wallet_id month -> SPK SMIN SMAX
+  local -a mf; mapfile -t mf < <(store_months)
   SPK=""; SMIN=0; SMAX=0
   read -r SPK SMIN SMAX < <(awk -F'\t' -v w="$1" -v m="$2" '
     FILENAME==ARGV[1] { if ($1==w) { bal=$3; od=$4; ok=1 } next }

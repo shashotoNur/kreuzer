@@ -3,30 +3,30 @@
 #
 # data/transactions.sh - month files: filtering, sorting, search queries
 #
-# Depends on : data/store.sh, parse_date, parse_money, CATS, WALS
-# Provides   : clear_filter parse_query load_tx load_month_tx
-# Globals    : F_FROM F_TO F_MIN F_MAX F_TEXT F_RE  (filter, set by parse_query)
+# Depends on : data/store.sh, date_parse, money_parse, CATS, WALS
+# Provides   : tx_filter_clear tx_parse_query tx_load tx_load_month
+# Globals    : F_FROM F_TO F_MIN F_MAX F_TEXT F_RE  (filter, set by tx_parse_query)
 #
 # meta month file (YYYY-MM.tsv) columns:
 #   id, date, time, kind (I E TO TI), cents, category_id, wallet_id, transfer_id, note
-# load_tx output rows (what the screens consume):
+# tx_load output rows (what the screens consume):
 #   id, "date time", kind, cents, category, wallet, note, transfer_id, category_id, wallet_id
 
-clear_filter() { F_FROM=; F_TO=; F_MIN=; F_MAX=; F_TEXT=; F_RE=0; }
+tx_filter_clear() { F_FROM=; F_TO=; F_MIN=; F_MAX=; F_TEXT=; F_RE=0; }
 
 # Query syntax: free words plus from:DD/MM/YYYY to:DD/MM/YYYY min:12.50 max:99.
 # A word wrapped in slashes (/rent|food/) switches to regular-expression matching.
 # Tokens with an invalid value are treated as ordinary text rather than rejected,
 # so a half-typed filter does not blank the result list.
-parse_query() {
+tx_parse_query() {
   local q=$1 tok words=""
-  clear_filter
+  tx_filter_clear
   for tok in $q; do
     case $tok in
-      from:*) parse_date "${tok#from:}" && F_FROM=$PD ;;
-      to:*)   parse_date "${tok#to:}" && F_TO=$PD ;;
-      min:*)  parse_money "${tok#min:}" && F_MIN=$PM ;;
-      max:*)  parse_money "${tok#max:}" && F_MAX=$PM ;;
+      from:*) date_parse "${tok#from:}" && F_FROM=$PD ;;
+      to:*)   date_parse "${tok#to:}" && F_TO=$PD ;;
+      min:*)  money_parse "${tok#min:}" && F_MIN=$PM ;;
+      max:*)  money_parse "${tok#max:}" && F_MAX=$PM ;;
       *) words+="${words:+ }$tok" ;;
     esac
   done
@@ -34,13 +34,13 @@ parse_query() {
   else F_TEXT=$words; fi
 }
 
-# load_tx FILE... -> TX, filtered by F_* and sorted by TXSORT/TXREV.
+# tx_load FILE... -> TX, filtered by F_* and sorted by TXSORT/TXREV.
 # Names are resolved here, not stored in the month files, so a category rename
 # applies to old transactions, and ids missing from the lookup tables show as
 # DELETED. That is also what makes trash restore re-link everything for free.
 # The search text goes through the environment to avoid shell quoting problems
 # with arbitrary user input.
-load_tx() {
+tx_load() {
   local skey
   case $TXSORT in
     amount) skey="4,4n" ;; category) skey="5,5f" ;; wallet) skey="6,6f" ;; type) skey="3,3" ;; *) skey="2,2" ;;
@@ -69,8 +69,8 @@ load_tx() {
     }' "$@" | sort -t$'\t' -k"$skey" -k1,1n)
 }
 
-load_month_tx() {
-  clear_filter
+tx_load_month() {
+  tx_filter_clear
   local f="$DATA/$MONTH.tsv"
-  if [[ -f $f ]]; then load_tx "$f"; else TX=(); fi
+  if [[ -f $f ]]; then tx_load "$f"; else TX=(); fi
 }

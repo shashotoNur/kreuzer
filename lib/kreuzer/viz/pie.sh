@@ -3,13 +3,13 @@
 #
 # viz/pie.sh - aggregation, slices and the half-block pie renderer
 #
-# Depends on : viz/bars.sh (vp, DVER), core/text, core/money, ui/canvas.sh,
+# Depends on : viz/bars.sh (viz_line, DVER), core/text, core/money, ui/canvas.sh,
 #              ui/theme.sh (PAL GRAYC NOCOL), ASP100 (config/config.sh)
-# Provides   : agg make_slices pie_render swatch pie_panel sel_cat
+# Provides   : pie_aggregate pie_slices pie_render pie_swatch pie_panel pie_selected_category
 # Out-vars   : AGG PSL LEG PTOT PIE SWT USED LEG_HL
 # Globals    : AGC PIEC RINGC OTHERC GLY
 #
-# Pipeline: agg (group by name) -> make_slices (colours, "Other" bucket) ->
+# Pipeline: agg (group by name) -> pie_slices (colours, "Other" bucket) ->
 # pie_render (one awk call) -> pie_panel (title, pie and legend).
 
 RINGC="122;128;146"    # empty-month ring
@@ -20,18 +20,18 @@ USED=0; LEG_HL=""; PTOT=0; SWT=""
 PIE=(); PSL=(); LEG=(); AGG=()
 declare -gA AGC=() PIEC=()
 
-# sel_cat : name of the category of the selected transaction row, so its legend
+# pie_selected_category : name of the category of the selected transaction row, so its legend
 # entry can be highlighted while browsing.
-sel_cat() {
+pie_selected_category() {
   local -a f; LEG_HL=""
   ((${#ROWS_DATA[@]})) || return 0
   IFS=$'\t' read -ra f <<<"${ROWS_DATA[SEL]}"; LEG_HL=${f[4]:-}
 }
 
-# agg tx|cs KIND ARRAYNAME -> AGG ("name<TAB>cents", largest first)
+# pie_aggregate tx|cs KIND ARRAYNAME -> AGG ("name<TAB>cents", largest first)
 # tx sums transaction rows by category name; cs reads (name, spent) from category
 # rows. The result is cached because the sums run through awk and sort.
-agg() {
+pie_aggregate() {
   local -n _s=$3
   local key="$1|$2|$3|$DVER|${#_s[@]}|${#_s[0]}" out prog
   if [[ -z ${AGC["$key"]+x} ]]; then
@@ -47,7 +47,7 @@ agg() {
 # AGG -> PSL (rgb<TAB>cents) for the renderer and LEG (name, cents, rgb, glyph)
 # for the legend. The palette has 12 colours; beyond that the smallest
 # categories are merged into one "Other" slice rather than reusing colours.
-make_slices() {
+pie_slices() {
   local n=${#AGG[@]} i nm cents rgb lim=12 other=0 cnt=0
   PSL=(); LEG=(); PTOT=0
   ((n > 12)) && lim=11
@@ -64,8 +64,8 @@ make_slices() {
   fi
 }
 
-# swatch RGB GLYPH -> SWT : legend marker, a colour block or doubled glyph.
-swatch() { if ((NOCOL)); then SWT="$2$2"; else SWT=$'\e[38;2;'"$1"'m██'"$RST"; fi; }
+# pie_swatch RGB GLYPH -> SWT : legend marker, a colour block or doubled glyph.
+pie_swatch() { if ((NOCOL)); then SWT="$2$2"; else SWT=$'\e[38;2;'"$1"'m██'"$RST"; fi; }
 
 # pie_render WIDTH HEIGHT -> PIE (one string per terminal row), from PSL.
 # Each cell holds two vertical "pixels" (an upper-half block with foreground =
@@ -130,7 +130,7 @@ pie_render() {
 }
 
 # pie_panel ROW COL WIDTH MAXROWS TITLE SIGN COLOUR : title, pie and legend.
-# Needs PSL, LEG and PTOT from make_slices. Sets USED to the rows consumed;
+# Needs PSL, LEG and PTOT from pie_slices. Sets USED to the rows consumed;
 # returns 1 when there is too little room, so callers can skip or stack panels.
 pie_panel() {
   local row=$1 col=$2 wd=$3 rows=$4 title=$5 sgn=$6 tc=$7
@@ -145,12 +145,12 @@ pie_panel() {
   if ((ph > rows - 2)); then ph=$((rows - 2)); pw=$((ph * ASP100 / 100)); fi
   ((pw >= 4)) || return 1
   pie_render "$pw" "$ph"
-  fm "$PTOT"
-  vp "$row" "${BOLD}${C_ACC}$title${RST}  ${tc}$sgn$M${RST}"
-  for ((i = 0; i < ${#PIE[@]}; i++)); do put $((row + 1 + i)) "$col" "${PIE[i]}"; done
+  money_format "$PTOT"
+  viz_line "$row" "${BOLD}${C_ACC}$title${RST}  ${tc}$sgn$M${RST}"
+  for ((i = 0; i < ${#PIE[@]}; i++)); do canvas_put $((row + 1 + i)) "$col" "${PIE[i]}"; done
   USED=$((ph + 2))
   if ((PTOT == 0)); then
-    put $((row + 1 + ph / 2)) $((col + (pw - 7) / 2)) "${C_DIM}no data${RST}"
+    canvas_put $((row + 1 + ph / 2)) $((col + (pw - 7) / 2)) "${C_DIM}no data${RST}"
     return 0
   fi
   lc=$((col + pw + 2)); lw=$((wd - pw - 2)); ((lw >= 10)) || return 0
@@ -162,15 +162,15 @@ pie_panel() {
   nwid=$((lw - 8)); ((amt)) && nwid=$((lw - 21))
   for ((i = 0; i < show; i++)); do
     IFS=$'\t' read -r nm cents rgb gl <<<"${LEG[i]}"
-    swatch "$rgb" "$gl"
+    pie_swatch "$rgb" "$gl"
     pc=$((cents * 100 / PTOT)); pcs="$pc%"; ((pc == 0)) && pcs="<1%"
-    rpad "$pcs" 4; pcs=$RP
-    pad "$nm" "$nwid"
+    text_rpad "$pcs" 4; pcs=$RP
+    text_pad "$nm" "$nwid"
     nc=$C_TXT; [[ $nm == "$LEG_HL" ]] && nc=$BOLD$C_ACC
     line="$SWT ${nc}$PAD${RST} ${C_DIM}$pcs${RST}"
-    if ((amt)); then fm "$cents"; rpad "$M" 12; line+=" ${C_DIM}$RP${RST}"; fi
-    put $((top + i)) "$lc" "$line"
+    if ((amt)); then money_format "$cents"; text_rpad "$M" 12; line+=" ${C_DIM}$RP${RST}"; fi
+    canvas_put $((top + i)) "$lc" "$line"
   done
-  ((n > show)) && put $((top + show)) "$lc" "${C_DIM}+$((n - show)) more${RST}"
+  ((n > show)) && canvas_put $((top + show)) "$lc" "${C_DIM}+$((n - show)) more${RST}"
   return 0
 }
