@@ -40,3 +40,12 @@ Comment why, not what. Good targets: a non-obvious ordering, a workaround, a for
 ## Commits
 
 One logical change per commit, with a short imperative subject. Update `CHANGELOG.md` for anything user-visible.
+
+
+## Releasing
+
+1. Set `VERSION` in `lib/kreuzer/main.sh` and add a section to `CHANGELOG.md`.
+2. Run `make check test man` and commit, including `man/kreuzer.1`.
+3. Tag and push: `git tag -a vX.Y.Z -m "kreuzer X.Y.Z" && git push origin main vX.Y.Z`.
+4. In `packaging/kreuzer`: set `pkgver`, reset `pkgrel=1`, run `updpkgsums`, then `makepkg --printsrcinfo > .SRCINFO`.
+5. Build with `makepkg -f`, run `namcap`, and copy `PKGBUILD` and `.SRCINFO` into the AUR repository.

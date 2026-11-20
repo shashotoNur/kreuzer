@@ -1,0 +1,34 @@
+# Maintainer: Shashoto Nur <shashoto.nur@proton.me>
+
+pkgname=kreuzer-git
+pkgver=0.1.0.r0.g0000000
+pkgrel=1
+pkgdesc='Full-screen terminal tracker for income, expenses and budgets (git version)'
+arch=('any')
+url='https://github.com/shashotoNur/kreuzer'
+license=('GPL-3.0-or-later')
+depends=('bash>=4.4' 'gawk' 'coreutils' 'util-linux' 'findutils' 'grep' 'tar')
+makedepends=('git')
+checkdepends=('bats')
+provides=('kreuzer')
+conflicts=('kreuzer')
+source=("git+$url.git")
+sha256sums=('SKIP')
+
+# Version is tag, commits since the tag, and short hash, for example
+# 0.1.0.r12.g1a2b3c4. It needs at least one tag in the history.
+pkgver() {
+  cd kreuzer
+  git describe --long --tags --abbrev=7 | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+check() {
+  cd kreuzer
+  make test
+}
+
+package() {
+  cd kreuzer
+  test -f man/kreuzer.1
+  make DESTDIR="$pkgdir" PREFIX=/usr install
+}
