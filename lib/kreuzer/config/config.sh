@@ -15,15 +15,15 @@ declare -gA CFG=([data_dir]="$HOME/Documents/$APP" [currency]="" [currency_pos]=
 # Associative arrays are unordered; this list keeps the written file stable.
 CFG_ORDER=(data_dir currency currency_pos thousands decimal pie_aspect auto_purge_days)
 
-# Unknown keys are fatal instead of ignored, so a typo in the file is reported
-# at startup and not silently dropped.
+# Unknown keys are fatal instead of ignored, so a typo in the file is
+# reported at startup and not silently dropped.
 config_load() {
   [[ -f $CONF_FILE ]] || return 0
-  local viz_section="" line k v
+  local section="" line k v
   while IFS= read -r line || [[ -n $line ]]; do
     line=${line%%#*}; text_trim "$line"; line=$TRIM
     [[ -z $line ]] && continue
-    if [[ $line =~ ^\[(.*)\]$ ]]; then viz_section=${BASH_REMATCH[1]}; continue; fi
+    if [[ $line =~ ^\[(.*)\]$ ]]; then section=${BASH_REMATCH[1]}; continue; fi
     k=${line%%=*}; v=${line#*=}; text_trim "$k"; k=$TRIM; text_trim "$v"; v=$TRIM
     case $section in
       general) [[ -n ${CFG[$k]+x} ]] || log_die "unknown setting '$k' in $CONF_FILE"; CFG[$k]=$v ;;

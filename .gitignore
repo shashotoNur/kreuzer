@@ -1,5 +1,4 @@
 dist/
-tools/
 
 packaging/*/src/
 packaging/*/pkg/

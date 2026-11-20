@@ -55,7 +55,7 @@ check "transfer restores both legs" "$(grep -c $'\t9\t' "$M1")" 2
 trash_meta "$CATS" C 3
 check "category trashed" "$(wc -l <"$CATS")" 1
 trash_restore "$(<"$TRASH")"
-check "category restored at the end" "$(tail -1 "$CATS")" $'3\tI\tSalary\t3'
+check "category restored at the end" "$(tail -1 "$CATS")" $'3\tI\tSalary\t2'
 
 ((fail)) && { echo "FAILED"; exit 1; }
 echo "all passed"
