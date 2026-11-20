@@ -40,17 +40,20 @@ KREUZER_MODULES=(
 )
 
 # Must stay at top level: inside a function, `declare` in the modules would
-# create function-local variables.
-for _module in "${KREUZER_MODULES[@]}"; do
-  if [[ ! -r $KREUZER_LIBDIR/$_module.sh ]]; then
-    # printf, not log_die: core/log may be the missing module.
-    printf '%s: missing module %s.sh in %s\n' "$APP" "$_module" "$KREUZER_LIBDIR" >&2
-    exit 1
-  fi
-  # shellcheck source=/dev/null
-  source "$KREUZER_LIBDIR/$_module.sh"
-done
-unset _module
+# create function-local variables. The bundled build (tools/dist.sh) has the
+# modules inline already and sets KREUZER_BUNDLED to skip loading.
+if [[ -z ${KREUZER_BUNDLED:-} ]]; then
+  for _module in "${KREUZER_MODULES[@]}"; do
+    if [[ ! -r $KREUZER_LIBDIR/$_module.sh ]]; then
+      # printf, not log_die: core/log may be the missing module.
+      printf '%s: missing module %s.sh in %s\n' "$APP" "$_module" "$KREUZER_LIBDIR" >&2
+      exit 1
+    fi
+    # shellcheck source=/dev/null
+    source "$KREUZER_LIBDIR/$_module.sh"
+  done
+  unset _module
+fi
 
 # Informational flags work without a config file, and the first-run questions
 # only run for commands that need data, so --help never creates files.
