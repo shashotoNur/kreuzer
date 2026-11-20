@@ -1,4 +1,5 @@
 dist/
+aur/
 
 packaging/*/src/
 packaging/*/pkg/

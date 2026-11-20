@@ -11,7 +11,7 @@ depends=('bash>=4.4' 'gawk' 'coreutils' 'util-linux' 'findutils' 'grep' 'tar')
 checkdepends=('bats')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 # Placeholder: replaced by `updpkgsums` once the v$pkgver tag is pushed.
-sha256sums=('593f89f5fb034d9f964faee31d85f1c0496904d72ae84705e2c0cf96555a4be0')
+sha256sums=('9bdeb21ac5638b15ede1fce4ce50a28d6a60676c5e649df6a041bc4efc5dc04e')
 
 check() {
   cd "$pkgname-$pkgver"
