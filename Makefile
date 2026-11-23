@@ -17,11 +17,9 @@ SHELL := bash
 
 .PHONY: check test dist man install uninstall clean
 
-# SC2154/SC2034 are disabled because modules deliberately share globals
-# (out-variables), which shellcheck cannot follow across files.
 check:
 > @for f in $(SOURCES) tests/*.sh; do bash -n "$$f" || exit 1; done; echo "syntax ok: $(words $(SOURCES)) files"
-> @if command -v shellcheck >/dev/null; then shellcheck -x -S warning -e SC2154,SC2034 $(SOURCES); else echo "shellcheck not found, skipped"; fi
+> @if command -v shellcheck >/dev/null; then shellcheck -x -S warning $(SOURCES) tests/*.sh; else echo "shellcheck not found, skipped"; fi
 
 test:
 > @if command -v bats >/dev/null; then bats tests/bats; \

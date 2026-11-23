@@ -32,11 +32,13 @@ fail=0
 check() { if [[ $2 == "$3" ]]; then echo "ok   $1"; else echo "FAIL $1: got [$2] want [$3]"; fail=1; fi; }
 
 balances_load
+# shellcheck disable=SC2016
 check "net worth" "$NW_TXT" '$3,087.50'
 
 screen_transactions_load
 check "transaction count" "${#ROWS_DATA[@]}" 2
 screen_transactions_row "${ROWS_DATA[0]}"
+# shellcheck disable=SC2016
 [[ $RR == *lunch* && $RR == *'-$12.50'* ]] && r=yes || r=no
 check "row shows note and signed amount" "$r" yes
 

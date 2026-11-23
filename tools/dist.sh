@@ -40,6 +40,7 @@ mkdir -p "$(dirname -- "$out")"
     strip "$lib/$m.sh"
   done
   echo
+  # shellcheck disable=SC2016
   echo 'if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; exit $?; fi'
 } >"$out"
 
